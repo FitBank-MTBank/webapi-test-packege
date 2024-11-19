@@ -1,0 +1,4 @@
+## Insira as Variaveis dinamicas
+ConnectionStrings__Redis=${REDIS_CONN_STRING}
+ConnectionStrings__${project_name}DbContext=Host=${DB_HOST};Port=5432;Database=${application_db};Username=${application_db_user};Password=${application_db_pwd};
+## FIM

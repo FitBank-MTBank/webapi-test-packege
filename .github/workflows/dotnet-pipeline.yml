@@ -1,0 +1,119 @@
+name: Dotnet Web API Pipeline
+on:
+  push:
+  pull_request:
+    types: [closed]
+jobs:
+  run-code-quality:
+    name: Code quality
+    if: ${{ !contains(github.event.head_commit.message, '(wip)') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      code-quality-status: ${{ steps.run-dotnet-code-quality-action.outputs.code-quality-status }}
+    steps:
+      - name: Check out action-dotnet-code-quality 
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/action-dotnet-code-quality
+          ref: main
+          token: ${{ secrets.SVC_ACCESS_TOKEN }}
+          path: ./.action-dotnet-code-quality
+
+      - name: Run dotnet code quality action
+        id: run-dotnet-code-quality-action
+        uses: ./.action-dotnet-code-quality
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  deploy:
+    name: Deploy application
+    needs: run-code-quality
+    if: ${{ needs.run-code-quality.outputs.code-quality-status == 'PASSED' && (github.ref_name == 'develop' || startsWith(github.ref_name, 'release/') || github.ref_name == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out action-dotnet-deploy
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/action-dotnet-deploy
+          ref: main
+          token: ${{ secrets.SVC_ACCESS_TOKEN }}
+          path: ./.action-dotnet-deploy
+
+      - name: Run dotnet deploy dev
+        id: run-dotnet-deploy-dev
+        if: ${{ github.ref_name == 'develop' }}
+        uses: ./.action-dotnet-deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORGANIZATION: ${{ github.repository_owner }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+          ENVIROMENT: dev
+          OVPN_CFG_FILE: ${{ secrets.PPRD_OVPN_CFG_FILE }}
+          DB_HOST: ${{ vars.DEV_RDS_POSTGRES_ADDR }}
+          DB_USER: ${{ vars.DEV_RDS_POSTGRES_USER }}
+          DB_PWD: ${{ secrets.DEV_RDS_POSTGRES_PWD }}
+          REDIS_CONN_STRING: ${{ vars.DEV_REDIS_CONN_STRING }}
+          API_LISTEN_PORT: ${{vars.API_LISTEN_PORT }}
+          AWS_ACCOUNT_ID: ${{ vars.PPRD_AWS_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.PPRD_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PPRD_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+          K8S_POD_CPU: ${{ vars.PPRD_K8S_POD_CPU }}
+          K8S_POD_MEMORY: ${{ vars.PPRD_K8S_POD_MEMORY }}
+          K8S_MIN_REPLICAS: ${{ vars.PPRD_K8S_MIN_REPLICAS }}
+          K8S_MAX_REPLICAS: ${{ vars.PPRD_K8S_MAX_REPLICAS }}
+          AWS_OUTPUT: "json"
+        
+
+      - name: Run dotnet deploy hml
+        id: run-dotnet-deploy-hml
+        if: ${{ startsWith(github.ref_name, 'release/') }}
+        uses: ./.action-dotnet-deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORGANIZATION: ${{ github.repository_owner }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+          ENVIROMENT: hml
+          OVPN_CFG_FILE: ${{ secrets.PPRD_OVPN_CFG_FILE }}
+          DB_HOST: ${{ vars.HML_RDS_POSTGRES_ADDR }}
+          DB_USER: ${{ vars.HML_RDS_POSTGRES_USER }}
+          DB_PWD: ${{ secrets.HML_RDS_POSTGRES_PWD }}
+          REDIS_CONN_STRING: ${{ vars.HML_REDIS_CONN_STRING }}
+          API_LISTEN_PORT: ${{vars.API_LISTEN_PORT }}
+          AWS_ACCOUNT_ID: ${{ vars.PPRD_AWS_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.PPRD_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PPRD_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+          K8S_POD_CPU: ${{ vars.PPRD_K8S_POD_CPU }}
+          K8S_POD_MEMORY: ${{ vars.PPRD_K8S_POD_MEMORY }}
+          K8S_MIN_REPLICAS: ${{ vars.PPRD_K8S_MIN_REPLICAS }}
+          K8S_MAX_REPLICAS: ${{ vars.PPRD_K8S_MAX_REPLICAS }}
+          AWS_OUTPUT: "json"
+
+      - name: Run dotnet deploy sandbox
+        id: run-dotnet-deploy-sandbox
+        if: ${{ github.ref_name == 'main' }}
+        uses: ./.action-dotnet-deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORGANIZATION: ${{ github.repository_owner }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+          ENVIROMENT: sandbox
+          OVPN_CFG_FILE: ${{ secrets.PPRD_OVPN_CFG_FILE }}
+          DB_HOST: ${{ vars.SANDBOX_RDS_POSTGRES_ADDR }}
+          DB_USER: ${{ vars.SANDBOX_RDS_POSTGRES_USER }}
+          DB_PWD: ${{ secrets.SANDBOX_RDS_POSTGRES_PWD }}
+          REDIS_CONN_STRING: ${{ vars.SANDBOX_REDIS_CONN_STRING }}
+          API_LISTEN_PORT: ${{vars.API_LISTEN_PORT }}
+          AWS_ACCOUNT_ID: ${{ vars.PPRD_AWS_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.PPRD_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PPRD_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+          K8S_POD_CPU: ${{ vars.PPRD_K8S_POD_CPU }}
+          K8S_POD_MEMORY: ${{ vars.PPRD_K8S_POD_MEMORY }}
+          K8S_MIN_REPLICAS: ${{ vars.PPRD_K8S_MIN_REPLICAS }}
+          K8S_MAX_REPLICAS: ${{ vars.PPRD_K8S_MAX_REPLICAS }}
+          AWS_OUTPUT: "json"

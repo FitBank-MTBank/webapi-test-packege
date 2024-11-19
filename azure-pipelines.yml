@@ -1,0 +1,19 @@
+trigger:
+  branches:
+    include:
+      - '*'
+  tags:
+    include:
+      - 'v*'
+
+resources:
+  repositories:
+    - repository: dotnet-pipeline
+      type: git
+      name: DevOps/dotnet-pipeline
+
+extends:
+  template: template.yml@dotnet-pipeline
+  parameters:
+    publishType: 'Container'
+    pciEnvironment: true
